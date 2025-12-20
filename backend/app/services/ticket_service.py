@@ -1,0 +1,81 @@
+import json
+from uuid import UUID
+from sqlalchemy.orm import Session
+from app.models.models import Ticket, Message
+from app.schemas.schemas import TicketCreate, MessageCreate
+from app.core.config import settings
+import redis
+
+# Initialize Redis
+redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
+
+def create_ticket(db: Session, obj_in: TicketCreate, user_id: UUID):
+    db_ticket = Ticket(
+        title=obj_in.title,
+        priority=obj_in.priority,
+        user_id=user_id,
+        status="open"
+    )
+    db.add(db_ticket)
+    db.flush() # Get ID
+
+    db_message = Message(
+        ticket_id=db_ticket.id,
+        sender_id=user_id,
+        content=obj_in.initial_message,
+        is_internal=False
+    )
+    db.add(db_message)
+    db.commit()
+    db.refresh(db_ticket)
+
+    # Push to Redis Stream for AI Worker
+    event = {
+        "event_type": "TICKET_CREATED",
+        "ticket_id": str(db_ticket.id),
+        "message_id": str(db_message.id),
+        "user_id": str(user_id),
+        "payload": {
+            "content": obj_in.initial_message
+        }
+    }
+    redis_client.xadd("ticket_events", {"data": json.dumps(event)})
+
+    return db_ticket
+
+def add_message(db: Session, ticket_id: UUID, obj_in: MessageCreate, sender_id: UUID):
+    db_message = Message(
+        ticket_id=ticket_id,
+        sender_id=sender_id,
+        content=obj_in.content,
+        is_internal=False
+    )
+    db.add(db_message)
+    
+    # Update ticket updated_at
+    db.query(Ticket).filter(Ticket.id == ticket_id).update({"updated_at": db.func.now()})
+    
+    db.commit()
+    db.refresh(db_message)
+
+    # Push to Redis Stream
+    event = {
+        "event_type": "MESSAGE_RECEIVED",
+        "ticket_id": str(ticket_id),
+        "message_id": str(db_message.id),
+        "user_id": str(sender_id),
+        "payload": {
+            "content": obj_in.content
+        }
+    }
+    redis_client.xadd("ticket_events", {"data": json.dumps(event)})
+
+    return db_message
+
+def get_tickets(db: Session, user_id: UUID, role: str):
+    if role == "admin":
+        return db.query(Ticket).all()
+    return db.query(Ticket).filter(Ticket.user_id == user_id).all()
+
+def get_ticket_messages(db: Session, ticket_id: UUID):
+    return db.query(Message).filter(Message.ticket_id == ticket_id).order_by(Message.created_at.asc()).all()

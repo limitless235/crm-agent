@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: support_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: support_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - support_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: support_redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - support_network
+
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: support_chroma
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - support_network
+
+networks:
+  support_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  chroma_data:
