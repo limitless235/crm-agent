@@ -35,6 +35,90 @@ services:
     networks:
       - support_network
 
+  backend:
+    build:
+      context: ./backend
+    container_name: support_backend
+    ports:
+      - "8001:8000"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=postgres
+      - REDIS_HOST=redis
+      - CHROMA_HOST=chroma
+    depends_on:
+      - postgres
+      - redis
+      - chroma
+    networks:
+      - support_network
+
+  backend_worker:
+    build:
+      context: ./backend
+    container_name: support_backend_worker
+    command: python -m app.services.ai_consumer
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=postgres
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - support_network
+
+  ai_worker:
+    build:
+      context: ./ai_worker
+    container_name: support_ai_worker
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=redis
+      - CHROMA_HOST=chroma
+      - POSTGRES_SERVER=postgres
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./ai_worker/data:/data
+    depends_on:
+      - redis
+      - chroma
+    networks:
+      - support_network
+
+  analytics:
+    build:
+      context: ./analytics
+    container_name: support_analytics
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=postgres
+      - PYTHONPATH=/app
+    depends_on:
+      - postgres
+    networks:
+      - support_network
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - NEXT_PUBLIC_API_URL=http://localhost:8001/api/v1
+        - NEXT_PUBLIC_WS_URL=ws://localhost:8001/api/v1
+    container_name: support_frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - backend
+    networks:
+      - support_network
+
 networks:
   support_network:
     driver: bridge

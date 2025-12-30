@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import UUID
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
 
 # User Schemas
@@ -52,6 +52,13 @@ class Message(MessageBase):
     ticket_id: UUID
     sender_id: UUID
     is_internal: bool
+    sentiment: Optional[str] = None
+    summary: Optional[str] = None
+    history_summary: Optional[str] = None
+    draft_response: Optional[str] = None
+    extracted_fields: Optional[Dict[str, Any]] = None
+    predicted_csat: Optional[int] = None
+    is_chronic: bool = False
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 

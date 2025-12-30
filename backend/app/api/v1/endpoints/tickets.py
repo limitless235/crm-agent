@@ -7,6 +7,7 @@ from app.services import ticket_service
 from app.models.models import User
 from app.core.ws_manager import manager
 import bleach
+from uuid import UUID
 
 router = APIRouter()
 
@@ -28,12 +29,29 @@ def create_ticket(
 def read_tickets(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
+    user_id: str = None
 ) -> Any:
-    return ticket_service.get_tickets(db, user_id=current_user.id, role=current_user.role)
+    filter_user_id = None
+    if user_id and current_user.role == "admin":
+        from uuid import UUID
+        filter_user_id = UUID(user_id)
+    return ticket_service.get_tickets(db, user_id=current_user.id, role=current_user.role, filter_user_id=filter_user_id)
+
+@router.get("/{ticket_id}", response_model=schemas.Ticket)
+def read_ticket(
+    ticket_id: UUID,
+    db: Session = Depends(deps.get_db),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    ticket = db.query(ticket_service.Ticket).filter(ticket_service.Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    # In production, check if user has access
+    return ticket
 
 @router.get("/{ticket_id}/messages", response_model=List[schemas.Message])
 def read_messages(
-    ticket_id: str,
+    ticket_id: UUID,
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
@@ -44,12 +62,30 @@ def read_messages(
 def post_message(
     *,
     db: Session = Depends(deps.get_db),
-    ticket_id: str,
+    ticket_id: UUID,
     message_in: schemas.MessageCreate,
     current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     message_in.content = sanitize_content(message_in.content)
     return ticket_service.add_message(db, ticket_id=ticket_id, obj_in=message_in, sender_id=current_user.id)
+
+@router.patch("/{ticket_id}/close", response_model=schemas.Ticket)
+def close_ticket(
+    *,
+    db: Session = Depends(deps.get_db),
+    ticket_id: UUID,
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only admins can close tickets")
+    ticket_service.close_ticket(db, ticket_id=ticket_id)
+    # Return the updated ticket
+    return db.query(ticket_service.Ticket).filter(ticket_service.Ticket.id == ticket_id).first()
+
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
+from jose import jwt
+from app.core.config import settings
+# ... existing imports ...
 
 @router.websocket("/ws/{ticket_id}")
 async def websocket_endpoint(

@@ -1,6 +1,6 @@
 import uuid
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Text, Index
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, Text, Index, Integer
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, DeclarativeBase
 from sqlalchemy.sql import func
 
@@ -37,6 +37,13 @@ class Message(Base):
     sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
     is_internal = Column(Boolean, default=False)
+    sentiment = Column(String(100), nullable=True)
+    summary = Column(Text, nullable=True)
+    history_summary = Column(Text, nullable=True)
+    draft_response = Column(Text, nullable=True)
+    extracted_fields = Column(JSONB, nullable=True)
+    predicted_csat = Column(Integer, nullable=True)
+    is_chronic = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     ticket = relationship("Ticket", back_populates="messages")

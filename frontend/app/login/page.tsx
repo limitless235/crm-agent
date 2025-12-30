@@ -1,74 +1,65 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthComponent } from '@/components/ui/sign-up';
+import { Gem } from 'lucide-react';
+import { decodeJWT } from '@/lib/api';
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const router = useRouter();
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
+    const handleAuth = async (email: string, password: string, mode: 'login' | 'signup') => {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1';
 
-        const formData = new FormData();
-        formData.append('username', email);
-        formData.append('password', password);
+        if (mode === 'login') {
+            const formData = new FormData();
+            formData.append('username', email);
+            formData.append('password', password);
 
-        try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+            const response = await fetch(`${apiUrl}/auth/login`, {
                 method: 'POST',
                 body: formData,
             });
 
             if (!response.ok) {
-                throw new Error('Invalid credentials');
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.detail || 'Invalid credentials');
             }
 
             const data = await response.json();
             localStorage.setItem('token', data.access_token);
-            router.push('/tickets');
-        } catch (err: any) {
-            setError(err.message);
+
+            // Decodes the token to redirect based on role
+            const payload = decodeJWT(data.access_token);
+            if (payload && payload.role === 'admin') {
+                router.push('/admin/tickets');
+            } else {
+                router.push('/tickets');
+            }
+        } else {
+            // If they toggle to register
+            const response = await fetch(`${apiUrl}/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, role: 'user' }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.detail || 'Registration failed');
+            }
+
+            // Success state managed by component
+            setTimeout(() => router.push('/login'), 5000);
         }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-            <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
-                <h1 className="text-2xl font-bold text-center mb-6">AntiGravity Support</h1>
-                {error && <div className="p-3 mb-4 text-sm text-red-600 bg-red-100 rounded">{error}</div>}
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="w-full py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 transition"
-                    >
-                        Login
-                    </button>
-                </form>
-            </div>
-        </div>
+        <AuthComponent
+            brandName="AntiGravity"
+            logo={<div className="bg-primary text-primary-foreground rounded-md p-1.5"><Gem className="h-4 w-4" /></div>}
+            defaultMode="login"
+            onAuth={handleAuth}
+        />
     );
 }

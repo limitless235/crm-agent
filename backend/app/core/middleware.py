@@ -3,8 +3,8 @@ import time
 from app.core.config import settings
 import redis
 
-# Rate limit: 10 requests per minute
-RATE_LIMIT = 10
+# Rate limit: 1000 requests per minute
+RATE_LIMIT = 1000
 WINDOW = 60
 
 redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
@@ -22,9 +22,12 @@ async def rate_limit_middleware(request: Request, call_next):
     current_time = int(time.time())
     
     # Use Redis to store timestamps of requests
+    # Use a unique ID (timestamp + counter or uuid) to ensure every request is counted
+    request_id = f"{current_time}:{time.time_ns()}"
+    
     pipe = redis_client.pipeline()
     pipe.zremrangebyscore(key, 0, current_time - WINDOW)
-    pipe.zadd(key, {str(current_time): current_time})
+    pipe.zadd(key, {request_id: current_time})
     pipe.zcard(key)
     pipe.expire(key, WINDOW)
     results = pipe.execute()

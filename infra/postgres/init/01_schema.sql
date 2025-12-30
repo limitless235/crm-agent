@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS messages (
     sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     is_internal BOOLEAN DEFAULT FALSE,
+    sentiment VARCHAR(100),
+    summary TEXT,
+    history_summary TEXT,
+    draft_response TEXT,
+    extracted_fields JSONB,
+    predicted_csat INTEGER,
+    is_chronic BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

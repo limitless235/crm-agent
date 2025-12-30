@@ -1,5 +1,6 @@
 import json
 from uuid import UUID
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.models import Ticket, Message
 from app.schemas.schemas import TicketCreate, MessageCreate
@@ -35,9 +36,7 @@ def create_ticket(db: Session, obj_in: TicketCreate, user_id: UUID):
         "ticket_id": str(db_ticket.id),
         "message_id": str(db_message.id),
         "user_id": str(user_id),
-        "payload": {
-            "content": obj_in.initial_message
-        }
+        "content": obj_in.initial_message
     }
     redis_client.xadd("ticket_events", {"data": json.dumps(event)})
 
@@ -53,7 +52,7 @@ def add_message(db: Session, ticket_id: UUID, obj_in: MessageCreate, sender_id: 
     db.add(db_message)
     
     # Update ticket updated_at
-    db.query(Ticket).filter(Ticket.id == ticket_id).update({"updated_at": db.func.now()})
+    db.query(Ticket).filter(Ticket.id == ticket_id).update({"updated_at": func.now()})
     
     db.commit()
     db.refresh(db_message)
@@ -64,18 +63,25 @@ def add_message(db: Session, ticket_id: UUID, obj_in: MessageCreate, sender_id: 
         "ticket_id": str(ticket_id),
         "message_id": str(db_message.id),
         "user_id": str(sender_id),
-        "payload": {
-            "content": obj_in.content
-        }
+        "content": obj_in.content
     }
     redis_client.xadd("ticket_events", {"data": json.dumps(event)})
 
     return db_message
 
-def get_tickets(db: Session, user_id: UUID, role: str):
+def get_tickets(db: Session, user_id: UUID, role: str, filter_user_id: UUID = None):
     if role == "admin":
-        return db.query(Ticket).all()
+        query = db.query(Ticket)
+        if filter_user_id:
+            query = query.filter(Ticket.user_id == filter_user_id)
+        return query.all()
     return db.query(Ticket).filter(Ticket.user_id == user_id).all()
+
+def close_ticket(db: Session, ticket_id: UUID):
+    db.query(Ticket).filter(Ticket.id == ticket_id).update({"status": "closed", "updated_at": func.now()})
+    db.commit()
+    # Optional: Broadcast closure via Redis if needed
+    return True
 
 def get_ticket_messages(db: Session, ticket_id: UUID):
     return db.query(Message).filter(Message.ticket_id == ticket_id).order_by(Message.created_at.asc()).all()
