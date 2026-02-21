@@ -1,4 +1,4 @@
-# AntiGravity AI Support System
+# RAG AI Support System
 
 A high-performance, asynchronous AI Support System featuring a FastAPI backend, Redis-stream based AI processing with RAG, a Next.js frontend, and DuckDB analytics.
 
