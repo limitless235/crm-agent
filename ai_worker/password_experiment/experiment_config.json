@@ -1,0 +1,52 @@
+{
+    "password_classes": {
+        "low": "data/low.txt",
+        "medium": "data/medium.txt",
+        "high": "data/high.txt"
+    },
+    "hashing_schemes": [
+        {
+            "algorithm": "md5",
+            "params": {}
+        },
+        {
+            "algorithm": "sha256",
+            "params": {}
+        },
+        {
+            "algorithm": "pbkdf2",
+            "params": {
+                "iterations": 100000,
+                "salt": "random"
+            }
+        },
+        {
+            "algorithm": "bcrypt",
+            "params": {
+                "rounds": 12
+            }
+        },
+        {
+            "algorithm": "scrypt",
+            "params": {
+                "N": 16384,
+                "r": 8,
+                "p": 1,
+                "salt": "random"
+            }
+        },
+        {
+            "algorithm": "argon2",
+            "params": {
+                "time_cost": 2,
+                "memory_cost": 102400,
+                "parallelism": 8,
+                "salt": "random"
+            }
+        }
+    ],
+    "attacker": {
+        "mode": "gpu",
+        "time_budget_seconds": 3600
+    }
+}
