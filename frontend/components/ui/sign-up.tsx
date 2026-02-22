@@ -213,6 +213,7 @@ export const AuthComponent = ({
 
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
+    const googleButtonRef = useRef<HTMLDivElement>(null);
     const googleScriptLoaded = useRef(false);
 
     // Load Google Identity Services script
@@ -230,6 +231,14 @@ export const AuthComponent = ({
                 client_id: clientId,
                 callback: handleGoogleCallback,
             });
+
+            // Render the button in the hidden container
+            if (googleButtonRef.current) {
+                window.google?.accounts.id.renderButton(
+                    googleButtonRef.current,
+                    { theme: 'outline', size: 'large', type: 'standard' }
+                );
+            }
         };
         document.head.appendChild(script);
 
@@ -261,9 +270,16 @@ export const AuthComponent = ({
 
     const handleGoogleClick = () => {
         if (window.google) {
-            window.google.accounts.id.prompt();
+            // Click the rendered google button to trigger the reliable popup flow
+            const googleLoginButton = googleButtonRef.current?.querySelector('div[role=button]') as HTMLElement;
+            if (googleLoginButton) {
+                googleLoginButton.click();
+            } else {
+                // Fallback to prompt if for some reason renderButton failed
+                window.google.accounts.id.prompt();
+            }
         } else {
-            setModalErrorMessage('Google Sign-In is not available. Please try again.');
+            setModalErrorMessage('Google Sign-In is not available. Please ensure the client ID is configured.');
             setModalStatus('error');
         }
     };
@@ -409,6 +425,7 @@ export const AuthComponent = ({
 
             <Confetti ref={confettiRef} manualstart className="fixed top-0 left-0 w-full h-full pointer-events-none z-[999]" />
             <Modal />
+            <div ref={googleButtonRef} className="hidden" aria-hidden="true"></div>
 
             <div className={cn("fixed top-4 left-4 z-20 flex items-center gap-2", "md:left-1/2 md:-translate-x-1/2")}>
                 {logo}
