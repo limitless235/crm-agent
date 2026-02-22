@@ -9,7 +9,10 @@ class UserBase(BaseModel):
     role: str = "user"
 
 class UserCreate(UserBase):
-    password: str
+    password: Optional[str] = None
+
+class GoogleAuthRequest(BaseModel):
+    credential: str  # The Google ID token
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None

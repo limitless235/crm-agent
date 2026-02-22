@@ -11,3 +11,4 @@ pydantic-settings>=2.2.1
 email-validator>=2.1.1
 bleach>=6.1.0
 websockets>=12.0
+httpx>=0.27.0

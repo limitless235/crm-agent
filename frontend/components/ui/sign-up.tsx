@@ -159,11 +159,27 @@ const TEXT_LOOP_INTERVAL = 1.5;
 
 const DefaultLogo = () => (<div className="bg-primary text-primary-foreground rounded-md p-1.5"> <Gem className="h-4 w-4" /> </div>);
 
+// --- GOOGLE IDENTITY SERVICES TYPE ---
+declare global {
+    interface Window {
+        google?: {
+            accounts: {
+                id: {
+                    initialize: (config: any) => void;
+                    prompt: (callback?: (notification: any) => void) => void;
+                    renderButton: (element: HTMLElement, config: any) => void;
+                };
+            };
+        };
+    }
+}
+
 // --- MAIN COMPONENT ---
 interface AuthComponentProps {
     logo?: React.ReactNode;
     brandName?: string;
     onAuth?: (email: string, password: string, mode: 'login' | 'signup') => Promise<void>;
+    onGoogleAuth?: (credential: string) => Promise<void>;
     defaultMode?: 'login' | 'signup';
 }
 
@@ -171,6 +187,7 @@ export const AuthComponent = ({
     logo = <DefaultLogo />,
     brandName = "EaseMize",
     onAuth,
+    onGoogleAuth,
     defaultMode = 'signup'
 }: AuthComponentProps) => {
     const [mode, setMode] = useState<'login' | 'signup'>(defaultMode);
@@ -190,6 +207,58 @@ export const AuthComponent = ({
 
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
+    const googleScriptLoaded = useRef(false);
+
+    // Load Google Identity Services script
+    useEffect(() => {
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!clientId || googleScriptLoaded.current) return;
+
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.defer = true;
+        script.onload = () => {
+            googleScriptLoaded.current = true;
+            window.google?.accounts.id.initialize({
+                client_id: clientId,
+                callback: handleGoogleCallback,
+            });
+        };
+        document.head.appendChild(script);
+
+        return () => {
+            // Cleanup: remove the script if the component unmounts
+            const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+            if (existingScript) existingScript.remove();
+        };
+    }, []);
+
+    const handleGoogleCallback = async (response: any) => {
+        if (response.credential && onGoogleAuth) {
+            setModalStatus('loading');
+            try {
+                await onGoogleAuth(response.credential);
+                const loadingStepsCount = modalSteps.length - 1;
+                const totalDuration = loadingStepsCount * TEXT_LOOP_INTERVAL * 1000;
+                setTimeout(() => {
+                    setModalStatus('success');
+                }, totalDuration);
+            } catch (err: any) {
+                setModalErrorMessage(err.message || 'Google authentication failed');
+                setModalStatus('error');
+            }
+        }
+    };
+
+    const handleGoogleClick = () => {
+        if (window.google) {
+            window.google.accounts.id.prompt();
+        } else {
+            setModalErrorMessage('Google Sign-In is not available. Please try again.');
+            setModalStatus('error');
+        }
+    };
 
     const fireSideCanons = () => {
         const fire = confettiRef.current?.fire;
@@ -345,7 +414,7 @@ export const AuthComponent = ({
                             <BlurFade delay={0.25 * 1} className="w-full"><div className="text-center"><p className="font-serif font-light text-4xl sm:text-5xl md:text-6xl tracking-tight text-foreground whitespace-nowrap">{mode === 'login' ? 'Welcome Back' : 'Get started with Us'}</p></div></BlurFade>
                             <BlurFade delay={0.25 * 2}><p className="text-sm font-medium text-muted-foreground">Continue with</p></BlurFade>
                             <BlurFade delay={0.25 * 3}><div className="flex items-center justify-center gap-4 w-full">
-                                <GlassButton contentClassName="flex items-center justify-center gap-2" size="sm" type="button" onClick={() => console.log('Google clicked')}><GoogleIcon /><span className="font-semibold text-foreground text-xs uppercase tracking-widest">Google</span></GlassButton>
+                                <GlassButton contentClassName="flex items-center justify-center gap-2" size="sm" type="button" onClick={handleGoogleClick}><GoogleIcon /><span className="font-semibold text-foreground text-xs uppercase tracking-widest">Google</span></GlassButton>
                                 <GlassButton contentClassName="flex items-center justify-center gap-2" size="sm" type="button" onClick={() => console.log('GitHub clicked')}><GitHubIcon /><span className="font-semibold text-foreground text-xs uppercase tracking-widest">GitHub</span></GlassButton>
                             </div></BlurFade>
                             <BlurFade delay={0.25 * 4} className="w-[300px]"><div className="flex items-center w-full gap-2 py-2"><hr className="w-full border-border" /><span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">OR</span><hr className="w-full border-border" /></div></BlurFade>

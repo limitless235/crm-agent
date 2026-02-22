@@ -11,8 +11,10 @@ class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)
     role = Column(String(50), nullable=False, default="user")
+    auth_provider = Column(String(50), nullable=False, default="local")
+    auth_provider_id = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     tickets = relationship("Ticket", back_populates="user")
