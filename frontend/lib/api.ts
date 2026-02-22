@@ -23,7 +23,7 @@ export function decodeJWT(token: string) {
             payload.role = payload.role.toLowerCase();
         }
         return payload;
-    } catch (e) {
+    } catch {
         return null;
     }
 }

@@ -170,7 +170,7 @@ export default function AdminTicketsPage() {
                         </button>
 
                         <div className="mb-8">
-                            <h2 className="text-3xl text-white font-extrabold">{selectedUser.email.split('@')[0].toUpperCase()}'s Tickets</h2>
+                            <h2 className="text-3xl text-white font-extrabold">{selectedUser.email.split('@')[0].toUpperCase()}&apos;s Tickets</h2>
                             <p className="text-slate-400 mt-1">Viewing all interaction history for this specific account.</p>
                         </div>
 

@@ -79,7 +79,7 @@ export function TextLoop({ children, className, interval = 2, transition = { dur
 interface BlurFadeProps { children: React.ReactNode; className?: string; variant?: { hidden: { y: number }; visible: { y: number } }; duration?: number; delay?: number; yOffset?: number; inView?: boolean; inViewMargin?: string; blur?: string; }
 export function BlurFade({ children, className, variant, duration = 0.4, delay = 0, yOffset = 6, inView = true, inViewMargin = "-50px", blur = "6px" }: BlurFadeProps) {
     const ref = useRef(null);
-    const inViewResult = useInView(ref, { once: true, margin: inViewMargin as any });
+    const inViewResult = useInView(ref, { once: true, margin: inViewMargin as `${number}px` });
     const isInView = !inView || inViewResult;
     const defaultVariants: Variants = {
         hidden: { y: yOffset, opacity: 0, filter: `blur(${blur})` },
@@ -160,14 +160,20 @@ const TEXT_LOOP_INTERVAL = 1.5;
 const DefaultLogo = () => (<div className="bg-primary text-primary-foreground rounded-md p-1.5"> <Gem className="h-4 w-4" /> </div>);
 
 // --- GOOGLE IDENTITY SERVICES TYPE ---
+interface GoogleCredentialResponse {
+    credential: string;
+    select_by?: string;
+    clientId?: string;
+}
+
 declare global {
     interface Window {
         google?: {
             accounts: {
                 id: {
-                    initialize: (config: any) => void;
-                    prompt: (callback?: (notification: any) => void) => void;
-                    renderButton: (element: HTMLElement, config: any) => void;
+                    initialize: (config: Record<string, unknown>) => void;
+                    prompt: (callback?: (notification: Record<string, unknown>) => void) => void;
+                    renderButton: (element: HTMLElement, config: Record<string, unknown>) => void;
                 };
             };
         };
@@ -232,9 +238,10 @@ export const AuthComponent = ({
             const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
             if (existingScript) existingScript.remove();
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const handleGoogleCallback = async (response: any) => {
+    const handleGoogleCallback = async (response: GoogleCredentialResponse) => {
         if (response.credential && onGoogleAuth) {
             setModalStatus('loading');
             try {
@@ -244,8 +251,9 @@ export const AuthComponent = ({
                 setTimeout(() => {
                     setModalStatus('success');
                 }, totalDuration);
-            } catch (err: any) {
-                setModalErrorMessage(err.message || 'Google authentication failed');
+            } catch (err: unknown) {
+                const message = err instanceof Error ? err.message : 'Google authentication failed';
+                setModalErrorMessage(message);
                 setModalStatus('error');
             }
         }
@@ -304,8 +312,9 @@ export const AuthComponent = ({
                 if (mode === 'signup') fireSideCanons();
                 setModalStatus('success');
             }, totalDuration);
-        } catch (err: any) {
-            setModalErrorMessage(err.message || 'Authentication failed');
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Authentication failed';
+            setModalErrorMessage(message);
             setModalStatus('error');
         }
     };

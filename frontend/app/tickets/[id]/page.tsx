@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { apiFetch, decodeJWT } from '@/lib/api';
 
 interface Message {
@@ -15,7 +14,7 @@ interface Message {
     summary?: string;
     history_summary?: string;
     draft_response?: string;
-    extracted_fields?: Record<string, any>;
+    extracted_fields?: Record<string, unknown>;
     predicted_csat?: number;
     is_chronic?: boolean;
 }
@@ -284,7 +283,7 @@ export default function TicketDetailPage() {
                                                 </button>
                                             </div>
                                             <p className="text-xs text-slate-400 italic leading-relaxed">
-                                                "{msg.draft_response || "Analytical model is refining a draft..."}"
+                                                &ldquo;{msg.draft_response || "Analytical model is refining a draft..."}&rdquo;
                                             </p>
                                         </div>
                                     </div>
