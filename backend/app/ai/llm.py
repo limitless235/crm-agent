@@ -1,4 +1,3 @@
-from llama_cpp import Llama
 from app.core.config import settings
 import json
 import re
@@ -9,11 +8,22 @@ logger = logging.getLogger(__name__)
 
 class LLMEngine:
     def __init__(self):
-        self.llm = None
+        self._llm = None
+        self._initialized = False
+
+    @property
+    def llm(self):
+        if not self._initialized:
+            self._init_llm()
+        return self._llm
+
+    def _init_llm(self):
+        self._initialized = True
+        from llama_cpp import Llama
+        import os
         model_path = settings.LLM_MODEL_PATH
         
         # Deep Diagnostic
-        import os
         logger.info(f"DEBUG: Checking model path: {model_path}")
         logger.info(f"DEBUG: /data exists: {os.path.exists('/data')}")
         if os.path.exists('/data'):
@@ -31,7 +41,7 @@ class LLMEngine:
                     logger.info(f"INFO: Configured model not found. Auto-discovered: {model_path}")
 
         try:
-            self.llm = Llama(
+            self._llm = Llama(
                 model_path=model_path,
                 n_ctx=settings.LLM_CONTEXT_WINDOW,
                 n_threads=4,

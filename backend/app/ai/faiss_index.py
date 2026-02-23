@@ -9,23 +9,36 @@ class FaissIndexManager:
     def __init__(self):
         self.index = None
         self.index_path = settings.FAISS_INDEX_PATH
-        self.doc_map = [] # Mapping of index to {id, document, metadata}
+        self.doc_map = [] 
+        self._initialized = False
+        
+    def _initialize(self):
+        if self._initialized: return
+        self._initialized = True
         self.load_or_rebuild()
 
+    def get_index(self):
+        if not self._initialized:
+            self._initialize()
+        return self.index
+        
+    def get_doc_map(self):
+        if not self._initialized:
+            self._initialize()
+        return self.doc_map
+
     def load_or_rebuild(self):
-        # We always rebuild if doc_map is empty because we need the mapping
         if os.path.exists(self.index_path):
             try:
                 self.index = faiss.read_index(self.index_path)
-                # We still need the doc_map from Chroma to associate indices with text
                 print(f"Loaded FAISS index from {self.index_path}. Fetching mapping...")
             except Exception as e:
                 print(f"Failed to load FAISS index: {e}")
-        
         self.rebuild()
 
     def rebuild(self):
         print("Rebuilding FAISS index from ChromaDB...")
+        from app.ai.chroma_client import chroma_client
         data = chroma_client.get_all_data()
         
         if data is None or 'embeddings' not in data or data['embeddings'] is None or len(data['embeddings']) == 0:
@@ -41,7 +54,6 @@ class FaissIndexManager:
         self.index = faiss.IndexFlatL2(d)
         self.index.add(embeddings)
         
-        # Store mapping
         self.doc_map = []
         for i in range(len(data['ids'])):
             self.doc_map.append({
@@ -55,16 +67,18 @@ class FaissIndexManager:
         print(f"FAISS index and mapping for {len(self.doc_map)} docs rebuilt.")
 
     def search(self, query_vector: list, k: int = 3):
-        if self.index is None or not self.doc_map:
+        idx = self.get_index()
+        dmap = self.get_doc_map()
+        if idx is None or not dmap:
             return []
             
         vector = np.array([query_vector]).astype('float32')
-        distances, indices = self.index.search(vector, k)
+        distances, indices = idx.search(vector, k)
         
         results = []
-        for i, idx in enumerate(indices[0]):
-            if idx != -1 and idx < len(self.doc_map):
-                results.append(self.doc_map[idx])
+        for i, idx_res in enumerate(indices[0]):
+            if idx_res != -1 and idx_res < len(dmap):
+                results.append(dmap[idx_res])
         return results
 
 faiss_manager = FaissIndexManager()
