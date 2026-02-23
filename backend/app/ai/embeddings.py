@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from worker.settings import settings
+from app.core.config import settings
 
 class EmbeddingsManager:
     def __init__(self):

@@ -1,5 +1,5 @@
 from llama_cpp import Llama
-from worker.settings import settings
+from app.core.config import settings
 import json
 import re
 import logging

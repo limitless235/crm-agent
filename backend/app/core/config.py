@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
+    # AI & ML Configurations
+    LLM_MODEL_PATH: str = "/data/models/mistral.gguf"
+    LLM_CONTEXT_WINDOW: int = 4096
+    LLM_MAX_TOKENS: int = 1024
+    CHROMA_HOST: str = "chroma"
+    CHROMA_PORT: int = 8000
+    CHROMA_COLLECTION_NAME: str = "tickets"
+    FAISS_INDEX_PATH: str = "/data/faiss_index.bin"
+    EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
+
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
 
 settings = Settings()

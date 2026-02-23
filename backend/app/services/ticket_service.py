@@ -5,12 +5,10 @@ from sqlalchemy.orm import Session
 from app.models.models import Ticket, Message
 from app.schemas.schemas import TicketCreate, MessageCreate
 from app.core.config import settings
-import redis
+from fastapi import BackgroundTasks
+from app.services.ai_processor import process_ticket_event_background
 
-# Initialize Redis
-redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, decode_responses=True)
-
-def create_ticket(db: Session, obj_in: TicketCreate, user_id: UUID):
+def create_ticket(db: Session, obj_in: TicketCreate, user_id: UUID, background_tasks: BackgroundTasks):
     db_ticket = Ticket(
         title=obj_in.title,
         priority=obj_in.priority,
@@ -30,22 +28,18 @@ def create_ticket(db: Session, obj_in: TicketCreate, user_id: UUID):
     db.commit()
     db.refresh(db_ticket)
 
-    # Push to Redis Stream for AI Worker
-    event = {
-        "event_type": "TICKET_CREATED",
-        "ticket_id": str(db_ticket.id),
-        "message_id": str(db_message.id),
-        "user_id": str(user_id),
-        "content": obj_in.initial_message
-    }
-    try:
-        redis_client.xadd("ticket_events", {"data": json.dumps(event)})
-    except Exception as e:
-        print(f"Warning: Failed to enqueue ticket to Redis AI worker: {e}")
+    # Run AI Worker locally in Background Task
+    background_tasks.add_task(
+        process_ticket_event_background,
+        ticket_id=db_ticket.id,
+        message_id=db_message.id,
+        user_id=user_id,
+        content=obj_in.initial_message
+    )
 
     return db_ticket
 
-def add_message(db: Session, ticket_id: UUID, obj_in: MessageCreate, sender_id: UUID):
+def add_message(db: Session, ticket_id: UUID, obj_in: MessageCreate, sender_id: UUID, background_tasks: BackgroundTasks):
     db_message = Message(
         ticket_id=ticket_id,
         sender_id=sender_id,
@@ -60,18 +54,14 @@ def add_message(db: Session, ticket_id: UUID, obj_in: MessageCreate, sender_id: 
     db.commit()
     db.refresh(db_message)
 
-    # Push to Redis Stream
-    event = {
-        "event_type": "MESSAGE_RECEIVED",
-        "ticket_id": str(ticket_id),
-        "message_id": str(db_message.id),
-        "user_id": str(sender_id),
-        "content": obj_in.content
-    }
-    try:
-        redis_client.xadd("ticket_events", {"data": json.dumps(event)})
-    except Exception as e:
-        print(f"Warning: Failed to enqueue message to Redis AI worker: {e}")
+    # Run AI Worker locally in Background Task
+    background_tasks.add_task(
+        process_ticket_event_background,
+        ticket_id=ticket_id,
+        message_id=db_message.id,
+        user_id=sender_id,
+        content=obj_in.content
+    )
 
     return db_message
 

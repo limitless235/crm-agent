@@ -1,5 +1,5 @@
-from worker.embeddings import embeddings_manager
-from worker.faiss_index import faiss_manager
+from app.ai.embeddings import embeddings_manager
+from app.ai.faiss_index import faiss_manager
 
 class RAGContextBuilder:
     def build_prompt(self, user_query: str, ticket_context: list = None):

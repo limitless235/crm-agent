@@ -1,5 +1,5 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.api import deps
 from app.schemas import schemas
@@ -21,9 +21,10 @@ def create_ticket(
     db: Session = Depends(deps.get_db),
     ticket_in: schemas.TicketCreate,
     current_user: User = Depends(deps.get_current_user),
+    background_tasks: BackgroundTasks,
 ) -> Any:
     ticket_in.initial_message = sanitize_content(ticket_in.initial_message)
-    return ticket_service.create_ticket(db, obj_in=ticket_in, user_id=current_user.id)
+    return ticket_service.create_ticket(db, obj_in=ticket_in, user_id=current_user.id, background_tasks=background_tasks)
 
 @router.get("/", response_model=List[schemas.Ticket])
 def read_tickets(
@@ -65,9 +66,10 @@ def post_message(
     ticket_id: UUID,
     message_in: schemas.MessageCreate,
     current_user: User = Depends(deps.get_current_user),
+    background_tasks: BackgroundTasks,
 ) -> Any:
     message_in.content = sanitize_content(message_in.content)
-    return ticket_service.add_message(db, ticket_id=ticket_id, obj_in=message_in, sender_id=current_user.id)
+    return ticket_service.add_message(db, ticket_id=ticket_id, obj_in=message_in, sender_id=current_user.id, background_tasks=background_tasks)
 
 @router.patch("/{ticket_id}/close", response_model=schemas.Ticket)
 def close_ticket(

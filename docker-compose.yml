@@ -14,17 +14,6 @@ services:
     networks:
       - support_network
 
-  redis:
-    image: redis:7-alpine
-    container_name: support_redis
-    command: redis-server --appendonly yes
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - support_network
-
   chroma:
     image: chromadb/chroma:latest
     container_name: support_chroma
@@ -45,46 +34,9 @@ services:
       - .env
     environment:
       - POSTGRES_SERVER=postgres
-      - REDIS_HOST=redis
       - CHROMA_HOST=chroma
     depends_on:
       - postgres
-      - redis
-      - chroma
-    networks:
-      - support_network
-
-  backend_worker:
-    build:
-      context: ./backend
-    container_name: support_backend_worker
-    command: python -m app.services.ai_consumer
-    env_file:
-      - .env
-    environment:
-      - POSTGRES_SERVER=postgres
-      - REDIS_HOST=redis
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - support_network
-
-  ai_worker:
-    build:
-      context: ./ai_worker
-    container_name: support_ai_worker
-    env_file:
-      - .env
-    environment:
-      - REDIS_HOST=redis
-      - CHROMA_HOST=chroma
-      - POSTGRES_SERVER=postgres
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./ai_worker/data:/data
-    depends_on:
-      - redis
       - chroma
     networks:
       - support_network
@@ -126,5 +78,4 @@ networks:
 
 volumes:
   postgres_data:
-  redis_data:
   chroma_data:

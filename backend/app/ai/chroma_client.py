@@ -1,7 +1,7 @@
 import chromadb
-import time
-from worker.settings import settings
-from worker.embeddings import embeddings_manager
+from chromadb.config import Settings
+from app.core.config import settings
+from app.ai.embeddings import embeddings_manager
 
 class ChromaClient:
     def __init__(self):

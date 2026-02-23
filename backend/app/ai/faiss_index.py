@@ -1,8 +1,9 @@
 import faiss
 import numpy as np
+import logging
 import os
-from worker.settings import settings
-from worker.chroma_client import chroma_client
+from app.core.config import settings
+from app.ai.chroma_client import chroma_client
 
 class FaissIndexManager:
     def __init__(self):
