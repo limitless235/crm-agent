@@ -38,6 +38,8 @@ services:
     depends_on:
       - postgres
       - chroma
+    volumes:
+      - ./ai_data:/data
     networks:
       - support_network
 
