@@ -22,11 +22,6 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-from app.core.middleware import rate_limit_middleware
-@app.middleware("http")
-async def add_rate_limit(request, call_next):
-    return await rate_limit_middleware(request, call_next)
-
 @app.get("/")
 def read_root():
     return {"message": "AntiGravity AI Support API is running"}
