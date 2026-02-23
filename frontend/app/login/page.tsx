@@ -80,13 +80,14 @@ export default function LoginPage() {
             } else {
                 router.push('/tickets');
             }
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as Error;
             console.error("Network or fetch error during Google auth:", {
                 apiUrl,
-                error: error.message,
-                stack: error.stack
+                error: err.message,
+                stack: err.stack
             });
-            throw new Error(`Connection to backend failed. Check API URL or CORS. (${error.message})`);
+            throw new Error(`Connection to backend failed. Check API URL or CORS. (${err.message})`);
         }
     };
 
