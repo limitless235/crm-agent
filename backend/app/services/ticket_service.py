@@ -38,7 +38,10 @@ def create_ticket(db: Session, obj_in: TicketCreate, user_id: UUID):
         "user_id": str(user_id),
         "content": obj_in.initial_message
     }
-    redis_client.xadd("ticket_events", {"data": json.dumps(event)})
+    try:
+        redis_client.xadd("ticket_events", {"data": json.dumps(event)})
+    except Exception as e:
+        print(f"Warning: Failed to enqueue ticket to Redis AI worker: {e}")
 
     return db_ticket
 
@@ -65,7 +68,10 @@ def add_message(db: Session, ticket_id: UUID, obj_in: MessageCreate, sender_id: 
         "user_id": str(sender_id),
         "content": obj_in.content
     }
-    redis_client.xadd("ticket_events", {"data": json.dumps(event)})
+    try:
+        redis_client.xadd("ticket_events", {"data": json.dumps(event)})
+    except Exception as e:
+        print(f"Warning: Failed to enqueue message to Redis AI worker: {e}")
 
     return db_message
 
