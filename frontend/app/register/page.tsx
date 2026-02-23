@@ -52,25 +52,36 @@ export default function RegisterPage() {
     const handleGoogleAuth = async (credential: string) => {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1';
 
-        const response = await fetch(`${apiUrl}/auth/google`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential }),
-        });
+        try {
+            console.log("Sending Google auth to:", apiUrl);
+            const response = await fetch(`${apiUrl}/auth/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ credential }),
+            });
 
-        if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.detail || 'Google authentication failed');
-        }
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                console.error("Backend auth failed:", data);
+                throw new Error(data.detail || 'Google authentication failed');
+            }
 
-        const data = await response.json();
-        localStorage.setItem('token', data.access_token);
+            const data = await response.json();
+            localStorage.setItem('token', data.access_token);
 
-        const payload = decodeJWT(data.access_token);
-        if (payload && payload.role === 'admin') {
-            router.push('/admin/tickets');
-        } else {
-            router.push('/tickets');
+            const payload = decodeJWT(data.access_token);
+            if (payload && payload.role === 'admin') {
+                router.push('/admin/tickets');
+            } else {
+                router.push('/tickets');
+            }
+        } catch (error: any) {
+            console.error("Network or fetch error during Google auth:", {
+                apiUrl,
+                error: error.message,
+                stack: error.stack
+            });
+            throw new Error(`Connection to backend failed. Check API URL or CORS. (${error.message})`);
         }
     };
 
