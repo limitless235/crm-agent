@@ -159,26 +159,7 @@ const TEXT_LOOP_INTERVAL = 1.5;
 
 const DefaultLogo = () => (<div className="bg-primary text-primary-foreground rounded-md p-1.5"> <Gem className="h-4 w-4" /> </div>);
 
-// --- GOOGLE IDENTITY SERVICES TYPE ---
-interface GoogleCredentialResponse {
-    credential: string;
-    select_by?: string;
-    clientId?: string;
-}
-
-declare global {
-    interface Window {
-        google?: {
-            accounts: {
-                id: {
-                    initialize: (config: Record<string, unknown>) => void;
-                    prompt: (callback?: (notification: Record<string, unknown>) => void) => void;
-                    renderButton: (element: HTMLElement, config: Record<string, unknown>) => void;
-                };
-            };
-        };
-    }
-}
+// --- TYPES ---
 
 // --- MAIN COMPONENT ---
 interface AuthComponentProps {
@@ -213,71 +194,50 @@ export const AuthComponent = ({
 
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
-    const googleButtonRef = useRef<HTMLDivElement>(null);
-    const googleScriptLoaded = useRef(false);
 
-    // Load Google Identity Services script
+    // Handle incoming Google Auth hash from implicit flow redirect
     useEffect(() => {
-        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-        if (!clientId || googleScriptLoaded.current) return;
+        if (typeof window === 'undefined') return;
 
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.async = true;
-        script.defer = true;
-        script.onload = () => {
-            googleScriptLoaded.current = true;
-            window.google?.accounts.id.initialize({
-                client_id: clientId,
-                callback: handleGoogleCallback,
-            });
+        const hash = window.location.hash;
+        if (hash.includes('id_token=') && onGoogleAuth) {
+            const params = new URLSearchParams(hash.substring(1));
+            const idToken = params.get('id_token');
 
-            // Render the button in the hidden container
-            if (googleButtonRef.current) {
-                window.google?.accounts.id.renderButton(
-                    googleButtonRef.current,
-                    { theme: 'outline', size: 'large', type: 'standard' }
-                );
+            if (idToken) {
+                // Clear the hash immediately so it doesn't persist on reload
+                window.history.replaceState(null, '', window.location.pathname);
+
+                setModalStatus('loading');
+                onGoogleAuth(idToken)
+                    .then(() => setModalStatus('success'))
+                    .catch(err => {
+                        const message = err instanceof Error ? err.message : 'Google authentication failed';
+                        setModalErrorMessage(message);
+                        setModalStatus('error');
+                    });
             }
-        };
-        document.head.appendChild(script);
-
-        return () => {
-            // Cleanup: remove the script if the component unmounts
-            const existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-            if (existingScript) existingScript.remove();
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    const handleGoogleCallback = async (response: GoogleCredentialResponse) => {
-        if (response.credential && onGoogleAuth) {
-            setModalStatus('loading');
-            try {
-                await onGoogleAuth(response.credential);
-                setModalStatus('success');
-            } catch (err: unknown) {
-                const message = err instanceof Error ? err.message : 'Google authentication failed';
-                setModalErrorMessage(message);
-                setModalStatus('error');
-            }
+        } else if (hash.includes('error=')) {
+            const params = new URLSearchParams(hash.substring(1));
+            setModalErrorMessage(params.get('error') || 'Google authentication failed');
+            setModalStatus('error');
+            window.history.replaceState(null, '', window.location.pathname);
         }
-    };
+    }, [onGoogleAuth]);
 
     const handleGoogleClick = () => {
-        if (window.google) {
-            // Click the rendered google button to trigger the reliable popup flow
-            const googleLoginButton = googleButtonRef.current?.querySelector('div[role=button]') as HTMLElement;
-            if (googleLoginButton) {
-                googleLoginButton.click();
-            } else {
-                // Fallback to prompt if for some reason renderButton failed
-                window.google.accounts.id.prompt();
-            }
-        } else {
-            setModalErrorMessage('Google Sign-In is not available. Please ensure the client ID is configured.');
+        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+        if (!clientId) {
+            setModalErrorMessage('Google Sign-In configuration is missing.');
             setModalStatus('error');
+            return;
         }
+
+        setModalStatus('loading'); // Show loading while constructing redirect
+        const redirectUri = window.location.origin + window.location.pathname;
+        const nonce = Math.random().toString(36).substring(2);
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token&scope=openid%20email%20profile&nonce=${nonce}&prompt=select_account`;
+        window.location.href = authUrl;
     };
 
     const fireSideCanons = () => {
@@ -416,7 +376,6 @@ export const AuthComponent = ({
 
             <Confetti ref={confettiRef} manualstart className="fixed top-0 left-0 w-full h-full pointer-events-none z-[999]" />
             <Modal />
-            <div ref={googleButtonRef} className="hidden" aria-hidden="true"></div>
 
             <div className={cn("fixed top-4 left-4 z-20 flex items-center gap-2", "md:left-1/2 md:-translate-x-1/2")}>
                 {logo}
