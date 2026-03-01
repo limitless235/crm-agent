@@ -77,8 +77,10 @@ export default function TicketDetailPage() {
         init();
 
         // Setup WebSocket
-        const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8001/api/v1';
-        const wsUrl = `${wsBaseUrl}/tickets/ws/${ticketId}${token ? `?token=${token}` : ''}`;
+        const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws') : 'ws://localhost:8001/api/v1');
+        // Handle case where user might have put something like wss://.../ws and we append /tickets/ws
+        const cleanBaseUrl = wsBaseUrl.endsWith('/api/v1') ? wsBaseUrl : wsBaseUrl.replace(/\/ws\/?$/, '/api/v1');
+        const wsUrl = `${cleanBaseUrl}/tickets/ws/${ticketId}${token ? `?token=${token}` : ''}`;
         const socket = new WebSocket(wsUrl);
 
         socket.onmessage = (event) => {
