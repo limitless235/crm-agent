@@ -255,11 +255,7 @@ export const AuthComponent = ({
             setModalStatus('loading');
             try {
                 await onGoogleAuth(response.credential);
-                const loadingStepsCount = modalSteps.length - 1;
-                const totalDuration = loadingStepsCount * TEXT_LOOP_INTERVAL * 1000;
-                setTimeout(() => {
-                    setModalStatus('success');
-                }, totalDuration);
+                setModalStatus('success');
             } catch (err: unknown) {
                 const message = err instanceof Error ? err.message : 'Google authentication failed';
                 setModalErrorMessage(message);
@@ -321,13 +317,8 @@ export const AuthComponent = ({
                 await onAuth(email, password, mode);
             }
 
-            const loadingStepsCount = modalSteps.length - 1;
-            const totalDuration = loadingStepsCount * TEXT_LOOP_INTERVAL * 1000;
-
-            setTimeout(() => {
-                if (mode === 'signup') fireSideCanons();
-                setModalStatus('success');
-            }, totalDuration);
+            if (mode === 'signup') fireSideCanons();
+            setModalStatus('success');
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Authentication failed';
             setModalErrorMessage(message);
