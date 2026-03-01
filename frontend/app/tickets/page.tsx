@@ -121,7 +121,7 @@ export default function TicketListPage() {
                 <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black text-white shadow-[0_0_15px_rgba(37,99,235,0.3)]">
-                            AG
+                            S
                         </div>
                         <h1 className="text-sm font-black uppercase tracking-widest text-white">My Tickets</h1>
                         <span className="px-1.5 py-0.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded text-[9px] font-black uppercase tracking-tighter ml-2">

@@ -88,7 +88,7 @@ export default function RegisterPage() {
 
     return (
         <AuthComponent
-            brandName="AntiGravity"
+            brandName="Sage"
             logo={<div className="bg-primary text-primary-foreground rounded-md p-1.5"><Gem className="h-4 w-4" /></div>}
             defaultMode="signup"
             onAuth={handleAuth}

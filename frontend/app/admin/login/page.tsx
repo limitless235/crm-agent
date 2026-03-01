@@ -84,7 +84,7 @@ export default function AdminLoginPage() {
                             id="email"
                             name="email"
                             type="email"
-                            placeholder="admin@antigravity.internal"
+                            placeholder="admin@sage.internal"
                             required
                             autoComplete="email"
                             value={email}
