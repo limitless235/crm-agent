@@ -108,7 +108,14 @@ export default function TicketListPage() {
         }
     };
 
-    if (isRedirecting) return null;
+    if (isRedirecting) {
+        return (
+            <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <p className="text-[10px] uppercase font-black tracking-widest text-slate-500">Synchronizing Session...</p>
+            </div>
+        );
+    }
 
     if (isAdminSession) {
         return (
