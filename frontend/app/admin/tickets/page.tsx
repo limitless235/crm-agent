@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch, decodeJWT } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 interface User {
     id: string;
@@ -28,22 +29,30 @@ export default function AdminTicketsPage() {
     const router = useRouter();
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            router.push('/admin/login');
-            return;
-        }
+        const initializeAdminSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.push('/admin/login');
+                return;
+            }
 
-        // Quick check if token is admin
-        const payload = decodeJWT(token);
-        if (!payload || payload.role !== 'admin') {
-            localStorage.removeItem('token');
-            router.push('/admin/login');
-            return;
-        }
-
-        async function fetchUsers() {
             try {
+                // Verify admin status
+                const roleRes = await apiFetch('/users/me');
+                if (roleRes.ok) {
+                    const user = await roleRes.json();
+                    if (user.role !== 'admin') {
+                        await supabase.auth.signOut();
+                        router.push('/admin/login');
+                        return;
+                    }
+                } else {
+                    await supabase.auth.signOut();
+                    router.push('/admin/login');
+                    return;
+                }
+
+                // If authorized, fetch users
                 const res = await apiFetch('/users');
                 if (res.ok) {
                     const data = await res.json();
@@ -52,13 +61,13 @@ export default function AdminTicketsPage() {
                     router.push('/admin/login');
                 }
             } catch (err) {
-                console.error('Failed to fetch users', err);
+                console.error('Failed to verify session or fetch users', err);
             } finally {
                 setLoading(false);
             }
-        }
+        };
 
-        fetchUsers();
+        initializeAdminSession();
     }, [router]);
 
     const handleSelectUser = async (user: User) => {
@@ -114,7 +123,7 @@ export default function AdminTicketsPage() {
                     </div>
                     <div className="flex items-center gap-6">
                         <button
-                            onClick={() => { localStorage.removeItem('token'); router.push('/admin/login'); }}
+                            onClick={async () => { await supabase.auth.signOut(); router.push('/admin/login'); }}
                             className="px-4 py-2 border border-white/10 rounded-lg text-xs font-bold text-slate-400 hover:text-white hover:bg-white/5 transition uppercase tracking-widest"
                         >
                             Emergency Logout

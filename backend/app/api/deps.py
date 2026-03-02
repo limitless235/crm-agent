@@ -16,18 +16,52 @@ def get_current_user(
     db: Session = Depends(get_db), token: str = Depends(reusable_oauth2)
 ) -> User:
     try:
+        # Verify the JWT using Supabase's HS256 JWT Secret
+        # Supabase sets the audience to 'authenticated' by default in some configurations.
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=["HS256"]
+            token, 
+            settings.SUPABASE_JWT_SECRET, 
+            algorithms=["HS256"],
+            options={"verify_aud": False}
         )
-        token_data = TokenPayload(**payload)
-    except (JWTError, Exception):
+        
+        user_id = payload.get("sub")
+        email = payload.get("email")
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid token payload",
+            )
+    except (JWTError, Exception) as e:
+        print(f"JWT Verification Error: {e}")
         raise HTTPException(
-            status_code=status.HTTP_03_FORBIDDEN,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    user = db.query(User).filter(User.id == token_data.sub).first()
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    # Auto-synchronize the user to the public.users table if they just logged in via Supabase for the first time
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+        if not email:
+            raise HTTPException(status_code=400, detail="User not found and email missing from token")
+        
+        user = User(
+            id=user_id,
+            email=email,
+            role="user",
+            auth_provider="supabase"
+        )
+        db.add(user)
+        try:
+            db.commit()
+            db.refresh(user)
+        except Exception as e:
+            db.rollback()
+            print(f"Failed to auto-create user from verified Supabase token: {e}")
+            raise HTTPException(status_code=500, detail="Failed to sync user profile")
+            
     return user
 
 def get_current_active_admin(

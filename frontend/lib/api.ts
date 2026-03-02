@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabase';
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1';
 
 export function decodeJWT(token: string) {
@@ -29,7 +31,8 @@ export function decodeJWT(token: string) {
 }
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || null;
 
     const headers = new Headers(options.headers);
     if (token) {
@@ -46,7 +49,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
 
     if (response.status === 401) {
         if (typeof window !== 'undefined') {
-            localStorage.removeItem('token');
+            await supabase.auth.signOut();
             window.location.href = '/login';
         }
     }

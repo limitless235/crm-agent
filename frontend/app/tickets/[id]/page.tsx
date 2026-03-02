@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { apiFetch, decodeJWT } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 interface Message {
     id: string;
@@ -33,8 +34,8 @@ export default function TicketDetailPage() {
 
     const [ticket, setTicket] = useState<Ticket | null>(null);
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         router.push('/login');
     };
     const [messages, setMessages] = useState<Message[]>([]);
@@ -44,16 +45,26 @@ export default function TicketDetailPage() {
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            const payload = decodeJWT(token);
-            if (payload) {
-                setIsAdmin(payload.role === 'admin');
-            }
-        }
+        let wsSocket: WebSocket | null = null;
 
         async function init() {
             try {
+                // Get Session
+                const { data: { session } } = await supabase.auth.getSession();
+                const token = session?.access_token;
+
+                if (session) {
+                    try {
+                        const roleRes = await apiFetch('/users/me');
+                        if (roleRes.ok) {
+                            const user = await roleRes.json();
+                            setIsAdmin(user.role === 'admin');
+                        }
+                    } catch (e) {
+                        console.error("Failed to check role", e);
+                    }
+                }
+
                 // Fetch Ticket Details
                 const ticketRes = await apiFetch(`/tickets/${ticketId}`);
                 if (ticketRes.ok) {
@@ -67,6 +78,19 @@ export default function TicketDetailPage() {
                     const data = await res.json();
                     setMessages(data);
                 }
+
+                // Setup WebSocket
+                const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws') : 'ws://localhost:8001/api/v1');
+                const cleanBaseUrl = wsBaseUrl.endsWith('/api/v1') ? wsBaseUrl : wsBaseUrl.replace(/\/ws\/?$/, '/api/v1');
+                const wsUrl = `${cleanBaseUrl}/tickets/ws/${ticketId}${token ? `?token=${token}` : ''}`;
+                wsSocket = new WebSocket(wsUrl);
+
+                wsSocket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'NEW_MESSAGE') {
+                        setMessages((prev) => [...prev, data]);
+                    }
+                };
             } catch (err) {
                 console.error('Failed to fetch data', err);
             } finally {
@@ -76,21 +100,7 @@ export default function TicketDetailPage() {
 
         init();
 
-        // Setup WebSocket
-        const wsBaseUrl = process.env.NEXT_PUBLIC_WS_URL || (process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL.replace(/^http/, 'ws') : 'ws://localhost:8001/api/v1');
-        // Handle case where user might have put something like wss://.../ws and we append /tickets/ws
-        const cleanBaseUrl = wsBaseUrl.endsWith('/api/v1') ? wsBaseUrl : wsBaseUrl.replace(/\/ws\/?$/, '/api/v1');
-        const wsUrl = `${cleanBaseUrl}/tickets/ws/${ticketId}${token ? `?token=${token}` : ''}`;
-        const socket = new WebSocket(wsUrl);
-
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'NEW_MESSAGE') {
-                setMessages((prev) => [...prev, data]);
-            }
-        };
-
-        return () => socket.close();
+        return () => wsSocket?.close();
     }, [ticketId]);
 
     useEffect(() => {

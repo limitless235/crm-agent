@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { decodeJWT } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { AuthUI, Label, Input, PasswordInput, Button } from '@/components/ui/auth-fuse';
 
 export default function AdminLoginPage() {
@@ -17,32 +18,29 @@ export default function AdminLoginPage() {
         e.preventDefault();
         setError('');
         setIsLoading(true);
-
-        const formData = new FormData();
-        formData.append('username', email);
-        formData.append('password', password);
-
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1';
-            const response = await fetch(`${apiUrl}/auth/login`, {
-                method: 'POST',
-                body: formData,
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
             });
 
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data.detail || 'Invalid admin credentials');
+            if (authError || !authData.session) {
+                throw new Error(authError?.message || 'Invalid admin credentials');
             }
 
-            const data = await response.json();
-
-            // Decodes the token to check role (simple check for UX)
-            const payload = decodeJWT(data.access_token);
-            if (!payload || payload.role !== 'admin') {
+            // Verify admin role
+            const roleRes = await apiFetch('/users/me');
+            if (roleRes.ok) {
+                const user = await roleRes.json();
+                if (user.role !== 'admin') {
+                    await supabase.auth.signOut();
+                    throw new Error('Access denied: User is not an administrator');
+                }
+            } else {
+                await supabase.auth.signOut();
                 throw new Error('Access denied: User is not an administrator');
             }
 
-            localStorage.setItem('token', data.access_token);
             router.push('/admin/tickets');
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Login failed');

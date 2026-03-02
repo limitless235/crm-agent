@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { AuthComponent } from '@/components/ui/sign-up';
 import { Gem } from 'lucide-react';
-import { decodeJWT } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,85 +11,34 @@ export default function LoginPage() {
     const router = useRouter();
 
     const handleAuth = async (email: string, password: string, mode: 'login' | 'signup') => {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1';
-
         if (mode === 'login') {
-            const formData = new FormData();
-            formData.append('username', email);
-            formData.append('password', password);
-
-            const response = await fetch(`${apiUrl}/auth/login`, {
-                method: 'POST',
-                body: formData,
+            const { error, data } = await supabase.auth.signInWithPassword({
+                email,
+                password,
             });
 
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data.detail || 'Invalid credentials');
+            if (error) {
+                throw new Error(error.message || 'Invalid credentials');
             }
 
-            const data = await response.json();
-            localStorage.setItem('token', data.access_token);
+            // Immediately query the user's role from JWT or assume 'user' for redirect purposes.
+            // In a real app we'd verify the role securely or decode the JWT on frontend for navigation hint.
+            // For now, redirect to /tickets. The global layout or API will handle unauthorized access.
+            router.push('/tickets');
 
-            // Decodes the token to redirect based on role
-            const payload = decodeJWT(data.access_token);
-            if (payload && payload.role === 'admin') {
-                router.push('/admin/tickets');
-            } else {
-                router.push('/tickets');
-            }
         } else {
-            // If they toggle to register
-            const response = await fetch(`${apiUrl}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password, role: 'user' }),
+            // Register flow
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
             });
 
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                throw new Error(data.detail || 'Registration failed');
+            if (error) {
+                throw new Error(error.message || 'Registration failed');
             }
 
             // Success state managed by component
             setTimeout(() => router.push('/login'), 5000);
-        }
-    };
-
-    const handleGoogleAuth = async (credential: string) => {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api/v1';
-
-        try {
-            console.log("Sending Google auth to:", apiUrl);
-            const response = await fetch(`${apiUrl}/auth/google`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ credential }),
-            });
-
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({}));
-                console.error("Backend auth failed:", data);
-                throw new Error(data.detail || 'Google authentication failed');
-            }
-
-            const data = await response.json();
-            localStorage.setItem('token', data.access_token);
-
-            const payload = decodeJWT(data.access_token);
-            if (payload && payload.role === 'admin') {
-                router.push('/admin/tickets');
-            } else {
-                router.push('/tickets');
-            }
-        } catch (error) {
-            const err = error as Error;
-            console.error("Network or fetch error during Google auth:", {
-                apiUrl,
-                error: err.message,
-                stack: err.stack
-            });
-            throw new Error(`Connection to backend failed. Check API URL or CORS. (${err.message})`);
         }
     };
 
@@ -99,7 +48,6 @@ export default function LoginPage() {
             logo={<div className="bg-primary text-primary-foreground rounded-md p-1.5"><Gem className="h-4 w-4" /></div>}
             defaultMode="login"
             onAuth={handleAuth}
-            onGoogleAuth={handleGoogleAuth}
         />
     );
 }

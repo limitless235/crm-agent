@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch, API_URL, decodeJWT } from '@/lib/api';
+import { apiFetch, API_URL } from '@/lib/api';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 console.log('Tickets Page Initialized. API_URL:', API_URL);
 
@@ -26,8 +27,8 @@ export default function TicketListPage() {
     const [isAdminSession, setIsAdminSession] = useState(false);
     const router = useRouter();
 
-    const handleLogout = () => {
-        localStorage.removeItem('token');
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
         router.push('/login');
     };
 
@@ -46,17 +47,28 @@ export default function TicketListPage() {
     };
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            const payload = decodeJWT(token);
-            if (payload && payload.role === 'admin') {
-                setIsAdminSession(true);
-                window.location.replace('/admin/tickets');
-                return;
+        const initializeSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                try {
+                    const res = await apiFetch('/users/me');
+                    if (res.ok) {
+                        const user = await res.json();
+                        if (user.role === 'admin') {
+                            setIsAdminSession(true);
+                            window.location.replace('/admin/tickets');
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to fetch user role", e);
+                }
             }
-        }
-        setIsRedirecting(false);
-        fetchTickets();
+            setIsRedirecting(false);
+            fetchTickets();
+        };
+
+        initializeSession();
     }, [router]);
 
     const handleCreateTicket = async (e: React.FormEvent) => {

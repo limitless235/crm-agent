@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
     GOOGLE_CLIENT_ID: str = ""
+    SUPABASE_JWT_SECRET: str = ""
     
     # DB
     POSTGRES_SERVER: str

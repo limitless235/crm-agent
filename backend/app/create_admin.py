@@ -7,7 +7,6 @@ def create_admin():
     db = SessionLocal()
     try:
         email = "admin@antigravity.internal"
-        # Check if exists
         user = db.query(User).filter(User.email == email).first()
         if user:
             print(f"User {email} already exists.")

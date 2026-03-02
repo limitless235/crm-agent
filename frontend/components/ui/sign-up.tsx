@@ -8,6 +8,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { ArrowRight, Mail, Gem, Lock, Eye, EyeOff, ArrowLeft, X, AlertCircle, PartyPopper, Loader } from "lucide-react";
 // Importing animation components from framer-motion
 import { AnimatePresence, motion, useInView, Variants, Transition } from "framer-motion";
+import { supabase } from "@/lib/supabase";
 
 // --- CONFETTI LOGIC ---
 import type { GlobalOptions as ConfettiGlobalOptions, CreateTypes as ConfettiInstance, Options as ConfettiOptions } from "canvas-confetti"
@@ -166,7 +167,6 @@ interface AuthComponentProps {
     logo?: React.ReactNode;
     brandName?: string;
     onAuth?: (email: string, password: string, mode: 'login' | 'signup') => Promise<void>;
-    onGoogleAuth?: (credential: string) => Promise<void>;
     defaultMode?: 'login' | 'signup';
 }
 
@@ -174,7 +174,6 @@ export const AuthComponent = ({
     logo = <DefaultLogo />,
     brandName = "EaseMize",
     onAuth,
-    onGoogleAuth,
     defaultMode = 'signup'
 }: AuthComponentProps) => {
     const [mode, setMode] = useState<'login' | 'signup'>(defaultMode);
@@ -195,49 +194,19 @@ export const AuthComponent = ({
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const confirmPasswordInputRef = useRef<HTMLInputElement>(null);
 
-    // Handle incoming Google Auth hash from implicit flow redirect
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const hash = window.location.hash;
-        if (hash.includes('id_token=') && onGoogleAuth) {
-            const params = new URLSearchParams(hash.substring(1));
-            const idToken = params.get('id_token');
-
-            if (idToken) {
-                // Clear the hash immediately so it doesn't persist on reload
-                window.history.replaceState(null, '', window.location.pathname);
-
-                setModalStatus('loading');
-                onGoogleAuth(idToken)
-                    .then(() => setModalStatus('success'))
-                    .catch(err => {
-                        const message = err instanceof Error ? err.message : 'Google authentication failed';
-                        setModalErrorMessage(message);
-                        setModalStatus('error');
-                    });
+    const handleGoogleClick = async () => {
+        setModalStatus('loading');
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/tickets`
             }
-        } else if (hash.includes('error=')) {
-            const params = new URLSearchParams(hash.substring(1));
-            setModalErrorMessage(params.get('error') || 'Google authentication failed');
-            setModalStatus('error');
-            window.history.replaceState(null, '', window.location.pathname);
-        }
-    }, [onGoogleAuth]);
+        });
 
-    const handleGoogleClick = () => {
-        const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-        if (!clientId) {
-            setModalErrorMessage('Google Sign-In configuration is missing.');
+        if (error) {
+            setModalErrorMessage(error.message);
             setModalStatus('error');
-            return;
         }
-
-        setModalStatus('loading'); // Show loading while constructing redirect
-        const redirectUri = window.location.origin + window.location.pathname;
-        const nonce = Math.random().toString(36).substring(2);
-        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token&scope=openid%20email%20profile&nonce=${nonce}&prompt=select_account`;
-        window.location.href = authUrl;
     };
 
     const fireSideCanons = () => {
